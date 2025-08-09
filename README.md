@@ -1,15 +1,15 @@
-# ICall — Web-Based Encrypted Audio Calling Platform
+# ICall — Web-Based Audio Calling Platform
 
 **Version**: v1.0.1
 
-A lightweight, encrypted, web-based calling solution that uses [PeerJS](https://peerjs.com/) for secure audio communication. Perfect for real-time, end-to-end encrypted voice conversations.
+A lightweight, web-based calling solution that uses [PeerJS](https://peerjs.com/) for secure audio communication. Perfect for real-time voice conversations.
 
 ---
 
 ##  Features
 
 - Join audio calls with a simple **Phone ID**—enter manually or select from your contacts.
-- **End-to-end encryption** ensures anonymized, private communications. Not even the server can eavesdrop. ([the-icall-project.staticrun.app](https://the-icall-project.staticrun.app/))
+ ([the-icall-project.staticrun.app](https://the-icall-project.staticrun.app/))
 - Real-time **call duration tracking**, plus **total time spent in calls**.
 - Essential controls: **Mute/Unmute**, **Mute/Unmute Microphone**,**Hang Up**, and **Incoming Call** alerts with options to **Accept** or **Decline**.
 - Call history & missed calls interface.
@@ -38,7 +38,7 @@ Access the live version here:
 
 ##  Security Notes
 
-- Built with **end-to-end encryption** by design; calls remain private. ([the-icall-project.staticrun.app](https://the-icall-project.staticrun.app/))
+End-to-end encrypted automatically by PeerJS. ([the-icall-project.staticrun.app](https://the-icall-project.staticrun.app/))
 
 ---
 
