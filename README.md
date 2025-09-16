@@ -7,6 +7,7 @@ A lightweight, web-based calling solution that uses [PeerJS](https://peerjs.com/
 **Changelog:**
 Improved User-interface
 Added video calls
+16.09.2025: Added Switch Camera Button for video calls (mobile-only)
 ---
 
 ##  Features
