@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PeerJS Audio/Video Call with Call Duration & History</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: #fff;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+    h2, h3 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    h2 {
+      font-size: 1.8rem;
+    }
+    p, label {
+      font-size: 0.95rem;
+    }
+    input, button, select {
+      padding: 10px;
+      margin: 6px 0;
+      font-size: 16px;
+      width: 100%;
+      border-radius: 6px;
+      border: none;
+      box-sizing: border-box;
+    }
+    input, select {
+      background: #f9f9f9;
+      color: #333;
+    }
+    button {
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    #call-btn {
+      background: #4CAF50;
+      color: white;
+    }
+    #hangup-btn {
+      background: #f44336;
+      color: white;
+    }
+    .call-controls button {
+      background: #ff9800;
+      color: white;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+      color: #00e676;
+    }
+    audio, video {
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 6px;
+      background: #000;
+    }
+    #localVideo {
+      width: 150px;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 100;
+    }
+    #call-history ul, #missed-calls ul {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+    }
+    #call-history li, #missed-calls li {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 0.9rem;
+    }
+    #missed-calls h3 {
+      color: #ff5252;
+    }
+    #incoming-call-screen {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      z-index: 1000;
+    }
+    #incoming-call-screen h2 {
+      font-size: 2rem;
+    }
+    #caller-id {
+      font-size: 2.2rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .incoming-call-buttons {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      align-items: center;
+    }
+    .incoming-call-buttons button {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      font-size: 28px;
+      border: none;
+      transition: transform 0.2s;
+    }
+    #accept-call-btn {
+      background: #4CAF50;
+      color: white;
+    }
+    #decline-call-btn {
+      background: #f44336;
+      color: white;
+    }
+    .incoming-call-buttons button:hover {
+      transform: scale(1.1);
+    }
+    .ringing-animation {
+      animation: ring 1s infinite;
+    }
+    @keyframes ring {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .call-controls {
+      display: flex;
+      gap: 5px;
+      margin: 10px 0;
+    }
+    .call-controls button {
+      flex: 1;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+    .checkbox-container input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
+    }
+    #videoContainer {
+      position: relative;
+      margin-top: 10px;
+    }
+    #remoteVideo {
+      width: 100%;
+    }
+    /* Mobile-only switch camera button */
+    #switch-camera-btn {
+      display: none;
+      background: #2196F3;
+      color: white;
+    }
+    @media (max-width: 768px) {
+      #switch-camera-btn {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>📞 The Icall Project (Version 1.0.3)</h2>
+  <h3>Call anyone around the world for free! Now with video calls.</h3>
+  New To ICall? 
+  <a href="https://icall-tutorial.tiiny.site" target="_blank" style="color: #007bff; text-decoration: none;">
+    Click here.
+  </a>
+  <div style="font-family: Arial, sans-serif; font-size: 16px; margin-top: 20px;">
+    Want to chat instead? 
+    <a href="https://the-ichat-project.staticrun.app" target="_blank" style="color: #007bff; text-decoration: none;">
+      Use IChat
+    </a>
+  </div>
+
+  <p><strong>Your Phone ID:</strong> <span id="my-id">Generating...</span></p>
+  <label for="other-id">Enter phone ID to call:</label>
+  <input type="text" id="other-id" placeholder="6-digit phone ID" maxlength="6">
+  <label for="phonebook">Or select from phonebook:</label>
+  <select id="phonebook">
+    <option value="">-- Phonebook Empty --</option>
+  </select>
+  
+  <div class="checkbox-container">
+    <input type="checkbox" id="audio-only">
+    <label for="audio-only">Audio Only Call</label>
+  </div>
+  
+  <button id="call-btn">Call</button>
+  <button id="hangup-btn" disabled>Hang Up</button>
+  
+  <div id="call-controls" class="hidden call-controls">
+    <button id="toggle-audio-btn">Mute Audio</button>
+    <button id="toggle-mic-btn">Mute Mic</button>
+    <button id="toggle-video-btn">Hide Video</button>
+    <button id="switch-camera-btn">Switch Camera</button>
+  </div>
+  
+  <h3>Current Call Duration: <span id="call-duration">00:00</span></h3>
+  <h3>Total Time in Calls: <span id="total-call-time">00:00</span></h3>
+  
+  <div id="videoContainer" class="hidden">
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+  <video id="localVideo" autoplay playsinline muted class="hidden"></video>
+  <audio id="remoteAudio" autoplay></audio>
+  
+  <div id="incoming-call-screen" class="hidden">
+    <h2>📞 Incoming Call</h2>
+    <div id="caller-id" class="ringing-animation">Unknown</div>
+    <div id="incoming-call-info">Touch to answer or decline</div>
+    <div class="incoming-call-buttons">
+      <button id="accept-call-btn" class="call-action-btn">📞</button>
+      <button id="decline-call-btn" class="call-action-btn">📵</button>
+    </div>
+  </div>
+  
+  <audio id="ringtone" loop preload="auto">
+    <source src="https://assets.mixkit.co/sfx/preview/mixkit-phone-ring-1002.mp3" type="audio/mpeg">
+  </audio>
+  <div id="status">Connecting...</div>
+  
+  <div id="call-history">
+    <h3>Call History</h3>
+    <ul id="history-list">
+      <!-- Filled dynamically -->
+    </ul>
+  </div>
+  
+  <div id="missed-calls">
+    <h3>Missed Calls</h3>
+    <ul id="missed-calls-list">
+      <!-- Filled dynamically -->
+    </ul>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  
+  <script>
+    // Cookie helpers
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return null;
+    }
+
+    function setCookie(name, value, days = 365) {
+      const date = new Date();
+      date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+      document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
+    }
+
+    // Utils
+    function generatePhoneId() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    function formatSeconds(s) {
+      const min = Math.floor(s / 60).toString().padStart(2, '0');
+      const sec = (s % 60).toString().padStart(2, '0');
+      return `${min}:${sec}`;
+    }
+
+    // Check if device is mobile
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    // LocalStorage keys
+    const PHONEBOOK_KEY = 'phonebook';
+    const CALL_HISTORY_KEY = 'callHistory';
+    const TOTAL_TIME_KEY = 'totalCallTime';
+    const MISSED_CALLS_KEY = 'missedCalls';
+
+    // Phonebook management
+    function saveToPhonebook(id) {
+      if (!id || id.length !== 6) return;
+      try {
+        let pb = JSON.parse(localStorage.getItem(PHONEBOOK_KEY) || '[]');
+        if (!pb.includes(id)) {
+          pb.push(id);
+          localStorage.setItem(PHONEBOOK_KEY, JSON.stringify(pb));
+          updatePhonebook();
+        }
+      } catch (e) {
+        console.error('Error saving to phonebook:', e);
+      }
+    }
+
+    function updatePhonebook() {
+      const pbSelect = document.getElementById('phonebook');
+      if (!pbSelect) return;
+      
+      try {
+        let pb = JSON.parse(localStorage.getItem(PHONEBOOK_KEY) || '[]');
+        pbSelect.innerHTML = pb.length ? '<option value="">-- Select a contact --</option>' : '<option value="">-- Phonebook Empty --</option>';
+        pb.forEach(id => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = id;
+          pbSelect.appendChild(opt);
+        });
+      } catch (e) {
+        console.error('Error updating phonebook:', e);
+      }
+    }
+
+    // Call History management
+    function addCallHistory(peerId, start, duration, isVideo) {
+      if (!peerId || !start || duration < 0) return;
+      
+      try {
+        let history = JSON.parse(localStorage.getItem(CALL_HISTORY_KEY) || '[]');
+        history.unshift({ peerId, start, duration, isVideo });
+        if (history.length > 50) history = history.slice(0, 50);
+        localStorage.setItem(CALL_HISTORY_KEY, JSON.stringify(history));
+        updateCallHistoryUI();
+      } catch (e) {
+        console.error('Error adding call history:', e);
+      }
+    }
+
+    function updateCallHistoryUI() {
+      const ul = document.getElementById('history-list');
+      if (!ul) return;
+      
+      try {
+        let history = JSON.parse(localStorage.getItem(CALL_HISTORY_KEY) || '[]');
+        ul.innerHTML = history.length ? '' : '<li>No calls yet.</li>';
+        history.forEach(call => {
+          const li = document.createElement('li');
+          const startDate = new Date(call.start);
+          const callType = call.isVideo ? 'Video call' : 'Audio call';
+          li.textContent = `${callType} with ${call.peerId} at ${startDate.toLocaleString()}, duration: ${formatSeconds(call.duration)}`;
+          ul.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Error updating call history UI:', e);
+      }
+    }
+
+    // Missed calls management
+    function addMissedCall(peerId, timestamp) {
+      if (!peerId) return;
+      
+      try {
+        let missedCalls = JSON.parse(localStorage.getItem(MISSED_CALLS_KEY) || '[]');
+        missedCalls.unshift({ peerId, timestamp });
+        if (missedCalls.length > 20) missedCalls = missedCalls.slice(0, 20);
+        localStorage.setItem(MISSED_CALLS_KEY, JSON.stringify(missedCalls));
+        updateMissedCallsUI();
+      } catch (e) {
+        console.error('Error adding missed call:', e);
+      }
+    }
+
+    function updateMissedCallsUI() {
+      const ul = document.getElementById('missed-calls-list');
+      if (!ul) return;
+      
+      try {
+        let missedCalls = JSON.parse(localStorage.getItem(MISSED_CALLS_KEY) || '[]');
+        ul.innerHTML = missedCalls.length ? '' : '<li>No missed calls.</li>';
+        missedCalls.forEach(call => {
+          const li = document.createElement('li');
+          const callDate = new Date(call.timestamp);
+          li.textContent = `Missed call from ${call.peerId} at ${callDate.toLocaleString()}`;
+          ul.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Error updating missed calls UI:', e);
+      }
+    }
+
+    // Total call time
+    function getTotalCallTime() {
+      try {
+        return Number(localStorage.getItem(TOTAL_TIME_KEY) || '0');
+      } catch (e) {
+        console.error('Error getting total call time:', e);
+        return 0;
+      }
+    }
+
+    function addToTotalCallTime(seconds) {
+      if (seconds <= 0) return;
+      
+      try {
+        const current = getTotalCallTime();
+        localStorage.setItem(TOTAL_TIME_KEY, (current + seconds).toString());
+        updateTotalCallTimeUI();
+      } catch (e) {
+        console.error('Error adding to total call time:', e);
+      }
+    }
+
+    function updateTotalCallTimeUI() {
+      const totalTimeSpan = document.getElementById('total-call-time');
+      if (totalTimeSpan) totalTimeSpan.textContent = formatSeconds(getTotalCallTime());
+    }
+
+    // DOM elements
+    const myIdSpan = document.getElementById("my-id");
+    const otherIdInput = document.getElementById("other-id");
+    const phonebookSelect = document.getElementById("phonebook");
+    const audioOnlyCheckbox = document.getElementById("audio-only");
+    const callBtn = document.getElementById("call-btn");
+    const hangupBtn = document.getElementById("hangup-btn");
+    const remoteAudio = document.getElementById("remoteAudio");
+    const remoteVideo = document.getElementById("remoteVideo");
+    const localVideo = document.getElementById("localVideo");
+    const videoContainer = document.getElementById("videoContainer");
+    const ringtone = document.getElementById("ringtone");
+    const statusDiv = document.getElementById("status");
+    const callDurationSpan = document.getElementById("call-duration");
+    const callControlsDiv = document.getElementById("call-controls");
+    const toggleAudioBtn = document.getElementById("toggle-audio-btn");
+    const toggleMicBtn = document.getElementById("toggle-mic-btn");
+    const toggleVideoBtn = document.getElementById("toggle-video-btn");
+    const switchCameraBtn = document.getElementById("switch-camera-btn");
+    const incomingCallScreen = document.getElementById("incoming-call-screen");
+    const callerIdSpan = document.getElementById("caller-id");
+    const acceptCallBtn = document.getElementById("accept-call-btn");
+    const declineCallBtn = document.getElementById("decline-call-btn");
+
+    // Initialize variables with immediate fallback
+    let phoneId = getCookie('peerjs_phone_id');
+    if (!phoneId) {
+      phoneId = generatePhoneId();
+      setCookie('peerjs_phone_id', phoneId);
+    }
+
+    let peer = null;
+    let currentCall = null;
+    let incomingCall = null;
+    let callStartTime = null;
+    let callTimerInterval = null;
+    let localStream = null;
+    let audioEnabled = true;
+    let micEnabled = true;
+    let videoEnabled = true;
+    let isInCall = false;
+    let isVideoCall = false;
+    let currentCamera = 'user'; // 'user' for front camera, 'environment' for rear
+    let availableCameras = [];
+
+    function setStatus(txt, isError = false) {
+      if (statusDiv) {
+        statusDiv.textContent = txt;
+        statusDiv.style.color = isError ? '#ff5252' : '#00e676';
+      }
+    }
+
+    function handleIncomingCall(call) {
+      if (isInCall) {
+        addMissedCall(call.peer, Date.now());
+        call.close();
+        setStatus("Missed call from " + call.peer + " (already in another call)", true);
+        return;
+      }
+      
+      incomingCall = call;
+      isVideoCall = call.metadata && call.metadata.isVideo;
+      showIncomingCallScreen(call.peer);
+    }
+
+    function showIncomingCallScreen(callerId) {
+      if (callerIdSpan) callerIdSpan.textContent = callerId;
+      if (incomingCallScreen) incomingCallScreen.classList.remove('hidden');
+      if (ringtone) {
+        ringtone.currentTime = 0;
+        ringtone.play().catch(e => console.log('Ringtone error:', e));
+      }
+      setStatus(`Incoming ${isVideoCall ? 'video' : 'audio'} call from ${callerId}`);
+    }
+
+    function hideIncomingCallScreen() {
+      if (incomingCallScreen) incomingCallScreen.classList.add('hidden');
+      if (ringtone) {
+        ringtone.pause();
+        ringtone.currentTime = 0;
+      }
+    }
+
+    function startCallTimer() {
+      callStartTime = Date.now();
+      if (callDurationSpan) callDurationSpan.textContent = "00:00";
+      callTimerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+        if (callDurationSpan) callDurationSpan.textContent = formatSeconds(elapsed);
+      }, 1000);
+    }
+
+    function stopCallTimer() {
+      if (callTimerInterval) clearInterval(callTimerInterval);
+      if (!callStartTime) return 0;
+      const duration = Math.floor((Date.now() - callStartTime) / 1000);
+      callStartTime = null;
+      if (callDurationSpan) callDurationSpan.textContent = "00:00";
+      return duration;
+    }
+
+    function endCallCleanup() {
+      isInCall = false;
+      isVideoCall = false;
+      if (currentCall) currentCall.close();
+      incomingCall = null;
+      hideIncomingCallScreen();
+      if (remoteAudio) remoteAudio.srcObject = null;
+      if (remoteVideo) remoteVideo.srcObject = null;
+      if (localVideo) {
+        localVideo.srcObject = null;
+        localVideo.classList.add('hidden');
+      }
+      if (videoContainer) videoContainer.classList.add('hidden');
+      if (hangupBtn) hangupBtn.disabled = true;
+      if (callBtn) callBtn.disabled = false;
+      if (callControlsDiv) callControlsDiv.classList.add('hidden');
+      setStatus("Ready");
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      audioEnabled = true;
+      micEnabled = true;
+      videoEnabled = true;
+      if (toggleAudioBtn) toggleAudioBtn.textContent = "Mute Audio";
+      if (toggleMicBtn) toggleMicBtn.textContent = "Mute Mic";
+      if (toggleVideoBtn) toggleVideoBtn.textContent = "Hide Video";
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      if (toggleAudioBtn) toggleAudioBtn.textContent = audioEnabled ? "Mute Audio" : "Unmute Audio";
+      if (remoteAudio) remoteAudio.muted = !audioEnabled;
+      if (remoteVideo) remoteVideo.muted = !audioEnabled;
+    }
+
+    function toggleMic() {
+      if (!localStream) return;
+      micEnabled = !micEnabled;
+      if (toggleMicBtn) toggleMicBtn.textContent = micEnabled ? "Mute Mic" : "Unmute Mic";
+      localStream.getAudioTracks().forEach(track => track.enabled = micEnabled);
+    }
+
+    function toggleVideo() {
+      if (!localStream) return;
+      videoEnabled = !videoEnabled;
+      if (toggleVideoBtn) toggleVideoBtn.textContent = videoEnabled ? "Hide Video" : "Show Video";
+      localStream.getVideoTracks().forEach(track => track.enabled = videoEnabled);
+      if (localVideo) localVideo.style.display = videoEnabled ? 'block' : 'none';
+    }
+
+    async function switchCamera() {
+      if (!localStream || !isVideoCall) return;
+      
+      try {
+        // Stop current video tracks
+        localStream.getVideoTracks().forEach(track => track.stop());
+        
+        // Get new stream with opposite facing mode
+        currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+        const constraints = {
+          audio: true,
+          video: { facingMode: currentCamera }
+        };
+        
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // Replace the video track in our local stream
+        const videoTrack = newStream.getVideoTracks()[0];
+        if (videoTrack) {
+          const sender = currentCall.peerConnection.getSenders().find(s => 
+            s.track && s.track.kind === 'video'
+          );
+          
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+          }
+        }
+        
+        // Update local video and stream
+        const audioTrack = localStream.getAudioTracks()[0];
+        localStream = new MediaStream([audioTrack, videoTrack]);
+        localVideo.srcObject = localStream;
+        
+        setStatus(`Switched to ${currentCamera === 'user' ? 'front' : 'rear'} camera`);
+      } catch (err) {
+        console.error("Error switching camera:", err);
+        setStatus("Failed to switch camera", true);
+      }
+    }
+
+    async function makeCall(otherId) {
+      if (!otherId || otherId.length !== 6) return alert("Please enter a valid 6-digit phone ID");
+      if (isInCall) return alert("Already in a call");
+      
+      const isAudioOnly = audioOnlyCheckbox.checked;
+      
+      try {
+        const constraints = {
+          audio: true,
+          video: isAudioOnly ? false : {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream = stream;
+        
+        // Show local video if it's a video call
+        if (!isAudioOnly && localVideo) {
+          localVideo.srcObject = stream;
+          localVideo.classList.remove('hidden');
+        }
+        
+        const call = peer.call(otherId, stream, {
+          metadata: { isVideo: !isAudioOnly }
+        });
+        
+        if (!call) throw new Error("Failed to initiate call");
+        
+        currentCall = call;
+        isInCall = true;
+        isVideoCall = !isAudioOnly;
+        saveToPhonebook(otherId);
+        setStatus(`Calling ${otherId}...`);
+        if (hangupBtn) hangupBtn.disabled = false;
+        if (callBtn) callBtn.disabled = true;
+        if (callControlsDiv) callControlsDiv.classList.remove('hidden');
+        if (isVideoCall && videoContainer) videoContainer.classList.remove('hidden');
+
+        call.on("stream", remoteStream => {
+          currentCall.remoteStream = remoteStream;
+          if (isVideoCall) {
+            if (remoteVideo) {
+              remoteVideo.srcObject = remoteStream;
+              remoteVideo.style.display = 'block';
+            }
+            if (remoteAudio) remoteAudio.srcObject = null;
+          } else {
+            if (remoteAudio) remoteAudio.srcObject = remoteStream;
+            if (remoteVideo) remoteVideo.srcObject = null;
+          }
+          
+          setStatus(`In ${isVideoCall ? 'video' : 'audio'} call with ${otherId}`);
+          
+          remoteStream.onaddtrack = () => {
+            if (isVideoCall && remoteVideo) {
+              remoteVideo.srcObject = remoteStream;
+            } else if (remoteAudio) {
+              remoteAudio.srcObject = remoteStream;
+            }
+          };
+        });
+
+        call.on("close", () => {
+          const duration = stopCallTimer();
+          if (duration > 0) {
+            addCallHistory(otherId, Date.now() - duration*1000, duration, isVideoCall);
+            addToTotalCallTime(duration);
+          }
+          endCallCleanup();
+        });
+
+        call.on("error", err => {
+          console.error("Call error:", err);
+          const duration = stopCallTimer();
+          if (duration > 0) {
+            addCallHistory(otherId, Date.now() - duration*1000, duration, isVideoCall);
+            addToTotalCallTime(duration);
+          }
+          endCallCleanup();
+          setStatus("Call error: " + err.message, true);
+        });
+
+        startCallTimer();
+      } catch (err) {
+        console.error("Error making call:", err);
+        endCallCleanup();
+        setStatus(`Failed to start call: ${err.message}`, true);
+      }
+    }
+
+    async function answerCall(call) {
+      if (!call) return;
+      try {
+        const isVideoCall = call.metadata && call.metadata.isVideo;
+        const constraints = {
+          audio: true,
+          video: isVideoCall ? {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          } : false
+        };
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream = stream;
+        
+        // Show local video if it's a video call
+        if (isVideoCall && localVideo) {
+          localVideo.srcObject = stream;
+          localVideo.classList.remove('hidden');
+        }
+        
+        call.answer(stream);
+        currentCall = call;
+        incomingCall = null;
+        isInCall = true;
+        this.isVideoCall = isVideoCall;
+        saveToPhonebook(call.peer);
+        hideIncomingCallScreen();
+        setStatus(`In ${isVideoCall ? 'video' : 'audio'} call with ${call.peer}`);
+        if (hangupBtn) hangupBtn.disabled = false;
+        if (callBtn) callBtn.disabled = true;
+        if (callControlsDiv) callControlsDiv.classList.remove('hidden');
+        if (isVideoCall && videoContainer) videoContainer.classList.remove('hidden');
+
+        call.on("stream", remoteStream => {
+          currentCall.remoteStream = remoteStream;
+          if (isVideoCall) {
+            if (remoteVideo) {
+              remoteVideo.srcObject = remoteStream;
+              remoteVideo.style.display = 'block';
+            }
+            if (remoteAudio) remoteAudio.srcObject = null;
+          } else {
+            if (remoteAudio) remoteAudio.srcObject = remoteStream;
+            if (remoteVideo) remoteVideo.srcObject = null;
+          }
+          
+          remoteStream.onaddtrack = () => {
+            if (isVideoCall && remoteVideo) {
+              remoteVideo.srcObject = remoteStream;
+            } else if (remoteAudio) {
+              remoteAudio.srcObject = remoteStream;
+            }
+          };
+        });
+
+        call.on("close", () => {
+          const duration = stopCallTimer();
+          if (duration > 0) {
+            addCallHistory(call.peer, Date.now() - duration*1000, duration, isVideoCall);
+            addToTotalCallTime(duration);
+          }
+          endCallCleanup();
+        });
+
+        call.on("error", err => {
+          console.error("Call error:", err);
+          const duration = stopCallTimer();
+          if (duration > 0) {
+            addCallHistory(call.peer, Date.now() - duration*1000, duration, isVideoCall);
+            addToTotalCallTime(duration);
+          }
+          endCallCleanup();
+          setStatus("Call error: " + err.message, true);
+        });
+
+        startCallTimer();
+      } catch (err) {
+        console.error("Error answering call:", err);
+        hideIncomingCallScreen();
+        setStatus("Ready");
+        incomingCall = null;
+        setStatus(`Failed to answer call: ${err.message}`, true);
+      }
+    }
+
+    function declineCall() {
+      if (incomingCall) {
+        addMissedCall(incomingCall.peer, Date.now());
+        incomingCall.close();
+        incomingCall = null;
+      }
+      hideIncomingCallScreen();
+      setStatus("Call declined");
+    }
+
+    // Initialize PeerJS with proper error handling
+    function initializePeer() {
+      try {
+        // Use a more reliable PeerJS server configuration
+        peer = new Peer(phoneId, {
+          host: '0.peerjs.com',
+          port: 443,
+          path: '/',
+          debug: 3,
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+          }
+        });
+        
+        // Show connecting status immediately
+        myIdSpan.textContent = phoneId + " (Connecting...)";
+        setStatus("Connecting to server...");
+
+        peer.on("open", id => {
+          console.log('Peer connected with ID:', id);
+          if (id !== phoneId) {
+            phoneId = id;
+            setCookie('peerjs_phone_id', id);
+          }
+          myIdSpan.textContent = id;
+          updatePhonebook();
+          updateCallHistoryUI();
+          updateMissedCallsUI();
+          updateTotalCallTimeUI();
+          setStatus("Ready");
+        });
+
+        peer.on("error", err => {
+          console.error('Peer error:', err);
+          myIdSpan.textContent = phoneId + " (Offline)";
+          if (err.type === 'peer-unavailable') {
+            setStatus("Error: The phone ID you entered is not available", true);
+          } else if (err.type === 'network') {
+            setStatus("Error: Network connection failed", true);
+          } else {
+            setStatus("Error: " + err.message, true);
+          }
+        });
+
+        peer.on("call", call => {
+          console.log('Incoming call from:', call.peer);
+          if (isInCall) {
+            addMissedCall(call.peer, Date.now());
+            call.close();
+            setStatus("Missed call from " + call.peer + " (already in call)", true);
+            return;
+          }
+          handleIncomingCall(call);
+        });
+
+        peer.on("disconnected", () => {
+          setStatus("Disconnected - trying to reconnect...");
+          setTimeout(() => {
+            if (peer && peer.disconnected) {
+              peer.reconnect();
+            }
+          }, 5000);
+        });
+
+        peer.on("close", () => {
+          setStatus("Connection closed - refresh to reconnect", true);
+        });
+
+      } catch (e) {
+        console.error('Error initializing peer:', e);
+        myIdSpan.textContent = phoneId + " (Offline)";
+        setStatus("Error: Could not initialize connection", true);
+      }
+    }
+
+    // Event listeners
+    callBtn.addEventListener('click', () => {
+      const otherId = otherIdInput.value.trim() || phonebookSelect.value;
+      if (!otherId) return alert("Enter or select a phone ID to call!");
+      makeCall(otherId);
+    });
+
+    hangupBtn.addEventListener('click', () => {
+      if (currentCall) {
+        const duration = stopCallTimer();
+        if (duration > 0 && currentCall.peer) {
+          addCallHistory(currentCall.peer, Date.now() - duration*1000, duration, isVideoCall);
+          addToTotalCallTime(duration);
+        }
+        currentCall.close();
+      }
+      endCallCleanup();
+    });
+
+    phonebookSelect.addEventListener('change', () => {
+      otherIdInput.value = phonebookSelect.value;
+    });
+
+    toggleAudioBtn.addEventListener('click', toggleAudio);
+    toggleMicBtn.addEventListener('click', toggleMic);
+    toggleVideoBtn.addEventListener('click', toggleVideo);
+    switchCameraBtn.addEventListener('click', switchCamera);
+    acceptCallBtn.addEventListener('click', () => incomingCall && answerCall(incomingCall));
+    declineCallBtn.addEventListener('click', declineCall);
+
+    remoteAudio.addEventListener('error', () => {
+      if (currentCall?.remoteStream) remoteAudio.srcObject = currentCall.remoteStream;
+    });
+
+    remoteVideo.addEventListener('error', () => {
+      if (currentCall?.remoteStream) remoteVideo.srcObject = currentCall.remoteStream;
+    });
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof Peer !== 'undefined') {
+        initializePeer();
+        
+        // Show switch camera button only on mobile devices
+        if (isMobileDevice()) {
+          switchCameraBtn.style.display = 'block';
+        }
+      } else {
+        console.error('PeerJS not available');
+        myIdSpan.textContent = phoneId + " (Offline)";
+        setStatus("Error: PeerJS library failed to load", true);
+      }
+    });
+  </script>
+</body>
+</html>
