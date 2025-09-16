@@ -1,6 +1,6 @@
 # ICall — Web-Based Audio and Video Calling Platform
 
-**Version**: v1.0.1.01
+**Version**: v1.0.2.01
 
 A lightweight, web-based calling solution that uses [PeerJS](https://peerjs.com/) for secure audio and video communication. Perfect for real-time video and voice conversations.
 
