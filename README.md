@@ -13,7 +13,6 @@ Added video calls
 ##  Features
 
 - Join audio and video calls with a simple **Phone ID**—enter manually or select from your contacts.
- ([the-icall-project.staticrun.app](https://the-icall-project.staticrun.app/))
 - Real-time **call duration tracking**, plus **total time spent in calls**.
 - Essential controls: **Mute/Unmute**, **Mute/Unmute Microphone**, **hide video** for video calls,**Hang Up**, and **Incoming Call** alerts with options to **Accept** or **Decline**.
 - Call history & missed calls interface.
@@ -24,7 +23,7 @@ Added video calls
 ##  Acces our project site 
 
 Access the live version here:  
-[The ICall Project](https://the-icall-project.staticrun.app)
+[The ICall Project](https://the-icall-project.tiiny.site)
 
 ---
 
